@@ -20,6 +20,7 @@ function setup_node_select(model,X,Y) {
     .forEach( function (item) {
       $("#node_select")
 	.append($('<option value="'+item+'">'+item+'</option>'))
+	L.rectangle(nb[item].bounds).bindTooltip(nb[item].txt).addTo(model);
     })
   $("#node_select")
     .change( function () {
@@ -31,14 +32,33 @@ function get_node_bounds(X,Y) {
   let ret={}
   $('svg').find('.node')
     .each( function () {
+	  txt = $(this).find('title').text()
+	  console.log('%s \n', txt);
       // let bb =this.getBBox()
       let bb = bbox_from_path(this)
       ret[$(this).find('title').text().trim()]={ bounds:[ [Y-bb.y, bb.x], [Y-bb.y-bb.height,bb.x+bb.width] ],
 					  rect: [ [Y-bb.y,bb.x], [Y-bb.y,bb.x+bb.width],
 						  [Y-bb.y-bb.height,bb.x+bb.width],
-						  [Y-bb.y-bb.height,bb.x] ] }
+						  [Y-bb.y-bb.height,bb.x] ],
+						  txt}
+		//Adding tooltip
+		$(this).find('text')
+		.each( function () {
+		})
+		
     })
   return ret
+}
+
+function set_node_tooltip_text() {
+	let ret = []
+	('svg').find('node').each( function() {
+	x = $(this).find('title').text()
+	console.log('%s \n', x);
+	//return x.trim()
+	ret.push(x) 
+	})
+	return ret
 }
 
 function bbox_from_path(elt) {
@@ -56,4 +76,8 @@ function bbox_from_path(elt) {
   b.x = b.xmin ; b.y = b.ymin ; 
   return b
 }
-  
+
+// Tooltips Initialization, borrowed from https://mdbootstrap.com/docs/jquery/javascript/tooltips/
+//$(function () {
+//  $('[data-toggle="tooltip"]').tooltip()
+//})  
