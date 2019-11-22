@@ -20,12 +20,23 @@ function setup_node_select(model,X,Y) {
     .forEach( function (item) {
       $("#node_select")
 	.append($('<option value="'+item+'">'+item+'</option>'))
-	L.rectangle(nb[item].bounds).bindTooltip(nb[item].txt).addTo(model);
+	//L.rectangle(nb[item].bounds).bindTooltip(nb[item].txt).addTo(model);
+	//
+	//
     })
   $("#node_select")
     .change( function () {
       model.flyToBounds(nb[$("#node_select").get(0).value].bounds)
     })
+	//console.log('a \n');
+	let els = set_node_tooltip_text(X, Y);
+	Object.keys(els).sort()
+    .forEach( function (item) {
+	L.rectangle(els[item].bounds).bindTooltip(els[item].txt).addTo(model);
+	//
+	//
+    })
+	//console.log('b \n');
   return nb
 }
 function get_node_bounds(X,Y) {
@@ -33,7 +44,7 @@ function get_node_bounds(X,Y) {
   $('svg').find('.node')
     .each( function () {
 	  txt = $(this).find('title').text()
-	  console.log('%s \n', txt);
+	  //console.log('%s \n', txt);
       // let bb =this.getBBox()
       let bb = bbox_from_path(this)
       ret[$(this).find('title').text().trim()]={ bounds:[ [Y-bb.y, bb.x], [Y-bb.y-bb.height,bb.x+bb.width] ],
@@ -41,23 +52,44 @@ function get_node_bounds(X,Y) {
 						  [Y-bb.y-bb.height,bb.x+bb.width],
 						  [Y-bb.y-bb.height,bb.x] ],
 						  txt}
-		//Adding tooltip
-		$(this).find('text')
-		.each( function () {
-		})
-		
+		console.log(Y-bb.y, bb.x, Y-bb.y-bb.height, bb.x+bb.width);
+		var htmlRect = (this).getBoundingClientRect();
+		console.log(htmlRect.top, htmlRect.right, htmlRect.bottom, htmlRect.left);
+		console.log ('%s \n', txt);
     })
   return ret
 }
 
-function set_node_tooltip_text() {
-	let ret = []
-	('svg').find('node').each( function() {
-	x = $(this).find('title').text()
-	console.log('%s \n', x);
-	//return x.trim()
-	ret.push(x) 
-	})
+function set_node_tooltip_text(X, Y) {
+	let ret = {}
+	var bodyRect = document.body.getBoundingClientRect();
+	console.log(bodyRect.top, bodyRect.right, bodyRect.bottom, bodyRect.left);
+	//console.log('c \n');
+	$('svg').find('.node')
+	.each( function() {
+		//console.log('d \n');
+		let bb = bbox_from_path(this)
+		var htmlRect = (this).getBoundingClientRect();
+		topOffset = (Y-bb.y)-htmlRect.top
+		rightOffset = (bb.x+bb.width)-htmlRect.right
+		leftOffset = (bb.x) - htmlRect.left
+		bottomOffset = (Y-bb.y-bb.height)-htmlRect.bottom
+		XOffset = (rightOffset + leftOffset)/2
+		YOffset = (topOffset+bottomOffset)/2
+		console.log(htmlRect.top, htmlRect.right, htmlRect.bottom, htmlRect.left);
+		$(this).find('text')
+		.each( function() {
+			var rect = (this).getBoundingClientRect();
+			console.log(YOffset+rect.top, XOffset+rect.right, YOffset+rect.bottom, XOffset+rect.left);
+			height = rect.height/2
+			width = rect.width/2
+			txt= $(this).text().trim()
+			ret[txt] = { bounds:[ [YOffset+rect.y + height, XOffset+rect.x-width], [YOffset+rect.y-height, XOffset+rect.x+width] ],
+						  txt}
+			console.log('%s \n', txt);
+			//return x.trim()
+		//ret.push(x) 
+	}) })
 	return ret
 }
 
