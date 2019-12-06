@@ -1,105 +1,84 @@
+
 $( function () {
-  var model = L.map('model', {
+    var model = L.map('model', {
     crs: L.CRS.Simple,
     minZoom: -3,
     zoomSnap: 1,
     bounceAtZoomLimits: true,
   });
   let BB = $("#graph").find('svg').children('g').get(0).getBBox();
-  let nb = setup_node_select(model,BB.width+BB.x,BB.y)
-  var bounds = [[BB.y,BB.width+BB.x],[BB.height+BB.y,BB.x]]
-  var image = L.svgOverlay($("#graph").find('svg').get(0), bounds).addTo(model)
+  var bounds = svg_to_leaflet_coords(BB,BB).bounds // [[BB.y,BB.width+BB.x],[BB.height+BB.y,BB.x]]
   model.fitBounds(bounds)
-  // L.polygon(nb.adverse_event.rect,{color: 'lightblue'}).addTo(model)
+  var image = L.svgOverlay($("#graph").find('svg').get(0), bounds).addTo(model)
+
+  let nb = setup_node_select(model,BB)
+
   $("#node_select").find('option[value=case]').attr("selected",true)
   model.flyToBounds(nb.case.bounds)
 })
-function setup_node_select(model,X,Y) {
-  let nb = get_node_bounds(X,Y);
+
+function setup_node_select(model,BB) {
+  let nb = get_node_bounds(BB);
   Object.keys(nb).sort()
     .forEach( function (item) {
       $("#node_select")
 	.append($('<option value="'+item+'">'+item+'</option>'))
-	//L.rectangle(nb[item].bounds).bindTooltip(nb[item].txt).addTo(model);
-	//
-	//
+      L.rectangle(nb[item].bounds, {color: "purple"}).addTo(model);
     })
   $("#node_select")
     .change( function () {
       model.flyToBounds(nb[$("#node_select").get(0).value].bounds)
     })
-	//console.log('a \n');
-	let els = set_node_tooltip_text(X, Y);
-	Object.keys(els).sort()
-    .forEach( function (item) {
-	L.rectangle(els[item].bounds).bindTooltip(els[item].txt).addTo(model);
-	//
-	//
+  let els = set_node_tooltip_text(BB);
+  Object.keys(els).sort()
+    .forEach( function (nodename) {
+      Object.keys(els[nodename]).sort()
+        .forEach( function (propname) {
+          L.rectangle(els[nodename][propname].bounds, {color: "red"}).addTo(model).bindTooltip(els[nodename][propname].txt).addTo(model);
+        })
     })
 	//console.log('b \n');
   return nb
 }
-function get_node_bounds(X,Y) {
+
+function get_node_bounds(BB) {
   let ret={}
+
   $('svg').find('.node')
     .each( function () {
-	  txt = $(this).find('title').text()
-	  //console.log('%s \n', txt);
-      // let bb =this.getBBox()
+      txt = $(this).find('title').text()
       let bb = bbox_from_path(this)
-      ret[$(this).find('title').text().trim()]={ bounds:[ [Y-bb.y, bb.x], [Y-bb.y-bb.height,bb.x+bb.width] ],
-					  rect: [ [Y-bb.y,bb.x], [Y-bb.y,bb.x+bb.width],
-						  [Y-bb.y-bb.height,bb.x+bb.width],
-						  [Y-bb.y-bb.height,bb.x] ],
-						  txt}
-		console.log(Y-bb.y, bb.x, Y-bb.y-bb.height, bb.x+bb.width);
-		var htmlRect = (this).getBoundingClientRect();
-		console.log(htmlRect.top, htmlRect.left, htmlRect.bottom, htmlRect.right, htmlRect.y, htmlRect.x);
-		console.log ('%s \n', txt);
+      ret[$(this).find('title').text().trim()]= svg_to_leaflet_coords(bb, BB)
     })
   return ret
 }
 
-function set_node_tooltip_text(X, Y) {
-	let ret = {}
-	let lines = {}
-	var bodyRect = document.body.getBoundingClientRect();
-	console.log(bodyRect.top, bodyRect.left, bodyRect.bottom, bodyRect.right);
-	//console.log('c \n');
-	$('svg').find('.node')
+function set_node_tooltip_text(BB) {
+  let ret = {}
+  $('svg').find('.node')
+    .each( function() {
+      let nodename = $(this).find('title').text()
+      ret[nodename] = {}
+      $(this).children('text')
 	.each( function() {
-		//console.log('d \n');
-		let bb = bbox_from_path(this)
-		var htmlRect = (this).getBoundingClientRect();
-		topOffset = (Y-bb.y)-htmlRect.bottom
-		rightOffset = (bb.x+bb.width)-((htmlRect.right+htmlRect.left)/2)
-		leftOffset = (bb.x) - ((htmlRect.right+htmlRect.left)/2)
-		bottomOffset = (Y-bb.y-bb.height)-htmlRect.top
-		XOffset = (rightOffset + leftOffset)/2
-		YOffset = (topOffset+bottomOffset)/2
-		console.log(htmlRect.top, htmlRect.left, htmlRect.bottom, htmlRect.right);
-		$(this).find('text')
-		.each( function() {
-			var rect = (this).getBoundingClientRect();
-			console.log(rect.top, rect.left, rect.bottom, rect.right);
-			height = rect.height/2
-			width = rect.width/2
-			xcenter = ((rect.right+rect.left)/2)
-			ycenter = ((rect.top+rect.bottom)/2)
-			txt= $(this).text().trim()
-			ret[txt] = { bounds:[ [topOffset+rect.bottom, XOffset+xcenter-width], [bottomOffset+rect.top, XOffset+xcenter+width] ],
-						  txt}
-			console.log(YOffset+ycenter+height, XOffset+xcenter-width, YOffset+ycenter-height, XOffset+xcenter+width, height, width, rect.top-rect.bottom, rect.right-rect.left);			  
-			console.log('%s \n', txt);
-			//return x.trim()
-		//ret.push(x) 
-		})
+          let propname = $(this).text()
+          propname = propname.trim()
+          if (!propname) {
+            // no text here, ignore
+            return
+          }
+          let bb = bbox_from_text(this)
+          let bb_leaf = svg_to_leaflet_coords( bb, BB )
+          bb_leaf.txt = propname
+          ret[nodename][propname] = bb_leaf
 	})
-	return ret
+    })
+  console.log(ret)
+  return ret
 }
 
 function bbox_from_path(elt) {
-  a = $(elt).find('path').attr('d').split(/[MC ]/);
+  let a = $(elt).find('path').attr('d').split(/[MC ]/);
   a.splice(0,4)
   let b={}
   for ( let i=0 ; i<a.length ; i=i+3 ) {
@@ -112,6 +91,30 @@ function bbox_from_path(elt) {
   b.width = b.xmax - b.xmin ; b.height = b.ymax-b.ymin ;
   b.x = b.xmin ; b.y = b.ymin ; 
   return b
+}
+
+function bbox_from_text(elt) {
+  let cx = $(elt).attr('x')
+  let cy = $(elt).attr('y')
+  let b = {}
+  // hard-code a small area around center point
+  b.width = 100
+  b.height = 25
+  b.x = cx - b.width/2
+  b.y = cy - b.height/2
+  return b
+}
+
+function svg_to_leaflet_coords (bb, BB) {
+  // bb - bounding box to convert
+  // BB - document bounding box
+  let X = BB.width+BB.x // furthest right (svg coords)
+  let Y = BB.y // furthest down (svg coords)
+  return { bounds:[ [Y-bb.y, bb.x],
+                    [Y-bb.y-bb.height,bb.x+bb.width] ],
+	   rect: [ [Y-bb.y,bb.x], [Y-bb.y,bb.x+bb.width],
+		   [Y-bb.y-bb.height,bb.x+bb.width],
+		   [Y-bb.y-bb.height,bb.x] ] }
 }
 
 /*function bbox_from_polyline(elt) {
